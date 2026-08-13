@@ -1,24 +1,38 @@
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
+const path = require("path");
 
 const app = express();
 
 const PORT = process.env.PORT || 3000;
 
+/* =========================
+   MIDDLEWARE
+========================= */
+
 app.use(cors());
 app.use(express.json());
-app.use(express.static("."));
+
+/* =========================
+   ARCHIVOS HTML
+========================= */
+
+app.use(express.static(__dirname));
+
+app.get("/test.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "test.html"));
+});
 
 /* =========================
    BASE DE DATOS TEMPORAL
-   ========================= */
+========================= */
 
 const orders = new Map();
 
 /* =========================
    PRODUCTOS
-   ========================= */
+========================= */
 
 const products = [
   {
@@ -26,7 +40,7 @@ const products = [
     game: "free-fire",
     name: "100 Diamantes",
     diamonds: 100,
-    price: 1.00,
+    price: 1,
     currency: "USD"
   },
   {
@@ -34,7 +48,7 @@ const products = [
     game: "free-fire",
     name: "310 Diamantes",
     diamonds: 310,
-    price: 3.00,
+    price: 3,
     currency: "USD"
   },
   {
@@ -42,14 +56,14 @@ const products = [
     game: "free-fire",
     name: "520 Diamantes",
     diamonds: 520,
-    price: 5.00,
+    price: 5,
     currency: "USD"
   }
 ];
 
 /* =========================
-   HEALTH CHECK
-   ========================= */
+   INICIO
+========================= */
 
 app.get("/", (req, res) => {
   res.json({
@@ -58,6 +72,10 @@ app.get("/", (req, res) => {
     status: "online"
   });
 });
+
+/* =========================
+   HEALTH
+========================= */
 
 app.get("/api/health", (req, res) => {
   res.json({
@@ -69,7 +87,7 @@ app.get("/api/health", (req, res) => {
 
 /* =========================
    PRODUCTOS
-   ========================= */
+========================= */
 
 app.get("/api/products", (req, res) => {
   res.json({
@@ -80,7 +98,7 @@ app.get("/api/products", (req, res) => {
 
 /* =========================
    CREAR PEDIDO
-   ========================= */
+========================= */
 
 app.post("/api/orders", (req, res) => {
   try {
@@ -105,7 +123,7 @@ app.post("/api/orders", (req, res) => {
     }
 
     const product = products.find(
-      p => p.id === productId
+      item => item.id === productId
     );
 
     if (!product) {
@@ -117,13 +135,16 @@ app.post("/api/orders", (req, res) => {
 
     const orderId =
       "FF-" +
-      crypto.randomBytes(5)
+      crypto
+        .randomBytes(5)
         .toString("hex")
         .toUpperCase();
 
     const order = {
       id: orderId,
+
       playerId,
+
       whatsapp: whatsapp || null,
 
       product: {
@@ -133,15 +154,20 @@ app.post("/api/orders", (req, res) => {
       },
 
       amount: product.price,
+
       currency: product.currency,
 
       paymentStatus: "pending",
+
       topupStatus: "pending",
 
       status: "awaiting_payment",
 
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt:
+        new Date().toISOString(),
+
+      updatedAt:
+        new Date().toISOString()
     };
 
     orders.set(orderId, order);
@@ -154,7 +180,10 @@ app.post("/api/orders", (req, res) => {
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      "Error creando pedido:",
+      error
+    );
 
     res.status(500).json({
       ok: false,
@@ -165,11 +194,12 @@ app.post("/api/orders", (req, res) => {
 
 /* =========================
    CONSULTAR PEDIDO
-   ========================= */
+========================= */
 
 app.get("/api/orders/:id", (req, res) => {
 
-  const order = orders.get(req.params.id);
+  const order =
+    orders.get(req.params.id);
 
   if (!order) {
     return res.status(404).json({
@@ -186,7 +216,7 @@ app.get("/api/orders/:id", (req, res) => {
 
 /* =========================
    WEBHOOK DE PAGOS
-   ========================= */
+========================= */
 
 app.post("/api/payments/webhook", (req, res) => {
 
@@ -203,7 +233,8 @@ app.post("/api/payments/webhook", (req, res) => {
     });
   }
 
-  const order = orders.get(orderId);
+  const order =
+    orders.get(orderId);
 
   if (!order) {
     return res.status(404).json({
@@ -214,25 +245,30 @@ app.post("/api/payments/webhook", (req, res) => {
 
   /*
    IMPORTANTE:
+   Esto es solamente un webhook
+   de prueba.
 
-   En producción NO debemos confiar
-   únicamente en req.body.status.
-
-   Aquí posteriormente conectaremos
-   el webhook real del proveedor de pagos.
+   Posteriormente conectaremos
+   un proveedor de pagos real
+   y verificaremos su firma.
   */
 
   if (status === "paid") {
 
     order.paymentStatus = "paid";
+
     order.status = "paid";
 
-    order.paymentId = paymentId || null;
+    order.paymentId =
+      paymentId || null;
 
     order.updatedAt =
       new Date().toISOString();
 
-    orders.set(orderId, order);
+    orders.set(
+      orderId,
+      order
+    );
 
     return res.json({
       ok: true,
@@ -244,13 +280,14 @@ app.post("/api/payments/webhook", (req, res) => {
   res.json({
     ok: true,
     message: "Webhook recibido",
-    paymentStatus: order.paymentStatus
+    paymentStatus:
+      order.paymentStatus
   });
 });
 
 /* =========================
    RECARGA
-   ========================= */
+========================= */
 
 app.post("/api/topup", async (req, res) => {
 
@@ -265,7 +302,8 @@ app.post("/api/topup", async (req, res) => {
     });
   }
 
-  const order = orders.get(orderId);
+  const order =
+    orders.get(orderId);
 
   if (!order) {
     return res.status(404).json({
@@ -276,46 +314,4 @@ app.post("/api/topup", async (req, res) => {
 
   /*
    SEGURIDAD:
-   Solo permitimos recargar
-   pedidos cuyo pago esté confirmado.
-  */
-
-  if (order.paymentStatus !== "paid") {
-    return res.status(400).json({
-      ok: false,
-      error: "El pedido todavía no está pagado"
-    });
-  }
-
-  /*
-   Todavía NO hacemos una recarga real.
-   Aquí conectaremos posteriormente
-   el proveedor/API de recargas.
-  */
-
-  order.topupStatus = "waiting_provider";
-  order.status = "processing";
-
-  order.updatedAt =
-    new Date().toISOString();
-
-  orders.set(orderId, order);
-
-  res.json({
-    ok: true,
-    message: "Pedido preparado para recarga",
-    order
-  });
-});
-
-/* =========================
-   INICIAR SERVIDOR
-   ========================= */
-
-app.listen(PORT, () => {
-
-  console.log(
-    `API funcionando en puerto ${PORT}`
-  );
-
-});
+  

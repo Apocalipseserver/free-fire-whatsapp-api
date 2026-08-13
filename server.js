@@ -4,7 +4,6 @@ const crypto = require("crypto");
 const path = require("path");
 
 const app = express();
-
 const PORT = process.env.PORT || 3000;
 
 /* =========================
@@ -13,22 +12,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-
-/* =========================
-   ARCHIVOS HTML
-========================= */
-
-app.use(express.static(__dirname));
-
-app.get("/test.html", (req, res) => {
-  res.sendFile(path.join(__dirname, "test.html"));
-});
-
-/* =========================
-   BASE DE DATOS TEMPORAL
-========================= */
-
-const orders = new Map();
 
 /* =========================
    PRODUCTOS
@@ -62,6 +45,12 @@ const products = [
 ];
 
 /* =========================
+   PEDIDOS
+========================= */
+
+const orders = new Map();
+
+/* =========================
    INICIO
 ========================= */
 
@@ -71,6 +60,16 @@ app.get("/", (req, res) => {
     service: "Free Fire WhatsApp API",
     status: "online"
   });
+});
+
+/* =========================
+   TEST HTML
+========================= */
+
+app.get("/test.html", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "test.html")
+  );
 });
 
 /* =========================
@@ -101,7 +100,9 @@ app.get("/api/products", (req, res) => {
 ========================= */
 
 app.post("/api/orders", (req, res) => {
+
   try {
+
     const {
       playerId,
       productId,
@@ -123,7 +124,7 @@ app.post("/api/orders", (req, res) => {
     }
 
     const product = products.find(
-      item => item.id === productId
+      p => p.id === productId
     );
 
     if (!product) {
@@ -141,6 +142,7 @@ app.post("/api/orders", (req, res) => {
         .toUpperCase();
 
     const order = {
+
       id: orderId,
 
       playerId,
@@ -170,7 +172,10 @@ app.post("/api/orders", (req, res) => {
         new Date().toISOString()
     };
 
-    orders.set(orderId, order);
+    orders.set(
+      orderId,
+      order
+    );
 
     res.status(201).json({
       ok: true,
@@ -180,16 +185,15 @@ app.post("/api/orders", (req, res) => {
 
   } catch (error) {
 
-    console.error(
-      "Error creando pedido:",
-      error
-    );
+    console.error(error);
 
     res.status(500).json({
       ok: false,
       error: "Error interno del servidor"
     });
+
   }
+
 });
 
 /* =========================
@@ -202,116 +206,55 @@ app.get("/api/orders/:id", (req, res) => {
     orders.get(req.params.id);
 
   if (!order) {
+
     return res.status(404).json({
       ok: false,
       error: "Pedido no encontrado"
     });
+
   }
 
   res.json({
     ok: true,
     order
   });
+
 });
 
 /* =========================
-   WEBHOOK DE PAGOS
+   WEBHOOK DE PAGO
 ========================= */
 
-app.post("/api/payments/webhook", (req, res) => {
+app.post(
+  "/api/payments/webhook",
+  (req, res) => {
 
-  const {
-    orderId,
-    paymentId,
-    status
-  } = req.body;
-
-  if (!orderId) {
-    return res.status(400).json({
-      ok: false,
-      error: "Falta orderId"
-    });
-  }
-
-  const order =
-    orders.get(orderId);
-
-  if (!order) {
-    return res.status(404).json({
-      ok: false,
-      error: "Pedido no encontrado"
-    });
-  }
-
-  /*
-   IMPORTANTE:
-   Esto es solamente un webhook
-   de prueba.
-
-   Posteriormente conectaremos
-   un proveedor de pagos real
-   y verificaremos su firma.
-  */
-
-  if (status === "paid") {
-
-    order.paymentStatus = "paid";
-
-    order.status = "paid";
-
-    order.paymentId =
-      paymentId || null;
-
-    order.updatedAt =
-      new Date().toISOString();
-
-    orders.set(
+    const {
       orderId,
-      order
-    );
+      paymentId,
+      status
+    } = req.body;
 
-    return res.json({
-      ok: true,
-      message: "Pago registrado",
-      order
-    });
-  }
+    if (!orderId) {
 
-  res.json({
-    ok: true,
-    message: "Webhook recibido",
-    paymentStatus:
-      order.paymentStatus
-  });
-});
+      return res.status(400).json({
+        ok: false,
+        error: "Falta orderId"
+      });
 
-/* =========================
-   RECARGA
-========================= */
+    }
 
-app.post("/api/topup", async (req, res) => {
+    const order =
+      orders.get(orderId);
 
-  const {
-    orderId
-  } = req.body;
+    if (!order) {
 
-  if (!orderId) {
-    return res.status(400).json({
-      ok: false,
-      error: "Falta orderId"
-    });
-  }
+      return res.status(404).json({
+        ok: false,
+        error: "Pedido no encontrado"
+      });
 
-  const order =
-    orders.get(orderId);
+    }
 
-  if (!order) {
-    return res.status(404).json({
-      ok: false,
-      error: "Pedido no encontrado"
-    });
-  }
-
-  /*
-   SEGURIDAD:
-  
+    /*
+     
